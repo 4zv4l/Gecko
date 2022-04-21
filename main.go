@@ -15,6 +15,7 @@ func printUsage() {
 	println("  [options] [file 1 file2 ...]")
 	println("Options:")
 	println("  -o <file>  write output to file (not append)")
+	println("  -stdin     read from stdin")
 	println("  -quiet     doesn't print the filename and the hash type")
 	println("  -md5       show md5 checksum")
 	println("  -sha1      show sha1 checksum")
@@ -24,7 +25,7 @@ func printUsage() {
 }
 
 // parse flags
-func parse() (out, quiet, showMD5, showSHA1, showSHA256, base64, dec64 bool) {
+func parse() (out, quiet, showMD5, showSHA1, showSHA256, base64, dec64, stdin bool) {
 	for _, arg := range os.Args[1:] {
 		switch arg {
 		case "-o":
@@ -41,11 +42,13 @@ func parse() (out, quiet, showMD5, showSHA1, showSHA256, base64, dec64 bool) {
 			base64 = true
 		case "-d64":
 			dec64 = true
+		case "-stdin":
+			stdin = true
 		default:
 			// do nothing
 		}
 	}
-	return out, quiet, showMD5, showSHA1, showSHA256, base64, dec64
+	return out, quiet, showMD5, showSHA1, showSHA256, base64, dec64, stdin
 }
 
 // get files from arguments without the output file
@@ -99,7 +102,7 @@ func checkOutput(output bool) *os.File {
 }
 
 // show the asked hashes of a file
-func showHash(files []string, out *os.File, quiet, showMD5, showSHA1, showSHA256, showB64, showD64 bool) {
+func showHash(stdin bool, files []string, out *os.File, quiet, showMD5, showSHA1, showSHA256, showB64, showD64 bool) {
 	for _, file := range files {
 		f, err := os.Open(file)
 		if err != nil {
@@ -146,10 +149,46 @@ func showHash(files []string, out *os.File, quiet, showMD5, showSHA1, showSHA256
 			}
 		}
 	}
+	// if stdin is true, read from stdin
+	if stdin {
+		if !quiet {
+			if showMD5 {
+				fmt.Fprintf(out, "MD5: %s\n", hash.GetMD5(os.Stdin))
+			}
+			if showSHA1 {
+				fmt.Fprintf(out, "SHA1: %s\n", hash.GetSHA1(os.Stdin))
+			}
+			if showSHA256 {
+				fmt.Fprintf(out, "SHA256: %s\n", hash.GetSHA256(os.Stdin))
+			}
+			if showB64 {
+				fmt.Fprintf(out, "B64: %s\n", hash.GetB64(os.Stdin))
+			}
+			if showD64 {
+				fmt.Fprintf(out, "D64: %s\n", hash.GetD64(os.Stdin))
+			}
+		} else {
+			if showMD5 {
+				fmt.Fprintf(out, "%s\n", hash.GetMD5(os.Stdin))
+			}
+			if showSHA1 {
+				fmt.Fprintf(out, "%s\n", hash.GetSHA1(os.Stdin))
+			}
+			if showSHA256 {
+				fmt.Fprintf(out, "%s\n", hash.GetSHA256(os.Stdin))
+			}
+			if showB64 {
+				fmt.Fprintf(out, "%s", hash.GetB64(os.Stdin))
+			}
+			if showD64 {
+				fmt.Fprintf(out, "%s", hash.GetD64(os.Stdin))
+			}
+		}
+	}
 }
 
 func main() {
-	output, quiet, showMD5, showSHA1, showSHA256, showB64, showD64 := parse()
+	output, quiet, showMD5, showSHA1, showSHA256, showB64, showD64, stdin := parse()
 	if !showMD5 && !showSHA1 && !showSHA256 && !showB64 && !showD64 {
 		printUsage()
 		return
@@ -157,9 +196,9 @@ func main() {
 	f := checkOutput(output)
 	defer f.Close()
 	files := getFiles(os.Args[1:])
-	if len(files) == 0 {
+	if len(files) == 0 && !stdin {
 		printUsage()
 		return
 	}
-	showHash(files, f, quiet, showMD5, showSHA1, showSHA256, showB64, showD64)
+	showHash(stdin, files, f, quiet, showMD5, showSHA1, showSHA256, showB64, showD64)
 }
